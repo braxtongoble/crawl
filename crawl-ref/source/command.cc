@@ -1390,6 +1390,8 @@ public:
     {
         set_tag("help");
         process_key(key);
+        mpr("Help popup opened."); // debuging message
+        mprf("Key: %d", key);      // debuging message
     };
 
 private:
@@ -1422,49 +1424,50 @@ private:
             // exit the UI, these help screens are activated outside of
             // the scroller popup
             return false;
-
         case 'f': // Handle the "F" key for searching
         {
             mpr("Enter search query (press Enter to confirm, Esc to cancel):"); // Display prompt
             string query;
-            int input_key; // Rename to avoid shadowing
+            int input_key;
 
             while (true)
             {
+                // Display the current query in the popup
+                show_manual_search_popup(query);
+
                 input_key = getch();                        // Capture key press
                 if (input_key == '\n' || input_key == '\r') // Enter key ends input
+                {
+                    if (!query.empty() && prev_page == '*') // Ensure we're in the manual
+                    {
+                        formatted_string search_results = _search_manual(contents, query);
+                        contents = search_results;
+                        m_contents_dirty = true;
+                        set_scroll(0); // Reset scroll to the top
+                        mpr(("Search results for: " + query).c_str());
+                    }
+                    else
+                    {
+                        mpr("No query entered.");
+                    }
                     break;
+                }
                 else if (input_key == CK_ESCAPE) // Escape key cancels input
                 {
                     mpr("Search canceled.");
-                    return true;
+                    break;
                 }
                 else if (input_key == 8 || input_key == 127) // Handle backspace
                 {
                     if (!query.empty())
-                    {
                         query.pop_back();
-                        mpr(("Search: " + query).c_str()); // Update displayed query
-                    }
                 }
-                else
+                else if (isprint(input_key)) // Append printable characters to the query
                 {
-                    query += static_cast<char>(input_key); // Append character to query
-                    mpr(("Search: " + query).c_str());     // Update displayed query
+                    query += static_cast<char>(input_key);
                 }
-            }
 
-            if (!query.empty() && prev_page == '*') // Ensure we're in the manual
-            {
-                formatted_string search_results = _search_manual(contents, query);
-                contents = search_results;
                 m_contents_dirty = true;
-                set_scroll(0); // Reset scroll to the top
-                mpr(("Search results for: " + query).c_str());
-            }
-            else
-            {
-                mpr("No query entered.");
             }
             return true;
         }
@@ -1486,6 +1489,22 @@ private:
 
         return formatted_scroller::process_key(ch);
     };
+
+    void show_manual_search_popup(const string &query)
+    {
+        // Placeholder text for the manual search popup
+        formatted_string manual_search_content = formatted_string::parse_string(
+            "<yellow>Search the Manual</yellow>\n\n"
+            "Enter your search query here:     " +
+            query);
+
+        formatted_scroller manual_search_popup(FS_PREWRAPPED_TEXT);
+        manual_search_popup.set_tag("manual_search_help");
+        manual_search_popup.add_formatted_string(manual_search_content);
+
+        // Show the secondary popup
+        manual_search_popup.show();
+    }
 
     int prev_page{0};
 };
@@ -1570,29 +1589,6 @@ static formatted_string _search_manual(const formatted_string &manual, const str
 
     return result;
 }
-
-/*
-static string get_user_input(const string &prompt)
-{
-    mpr(prompt.c_str()); // Display the prompt to the user
-    string input;
-    int key;
-
-    while (true)
-    {
-        key = getch();                  // Use the game's input system to capture a key press
-        if (key == '\n' || key == '\r') // Enter key ends input
-            break;
-        else if (key == CK_ESCAPE) // Escape key cancels input
-            return "";
-        else
-            input += static_cast<char>(key); // Append character to input
-    }
-
-    trim_string_right(input);
-    return input;
-}
-    */
 
 static string tolower_string(const string &input)
 {
