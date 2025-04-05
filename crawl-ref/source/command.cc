@@ -1391,7 +1391,6 @@ public:
         set_tag("help");
         process_key(key);
         mpr("Help popup opened."); // debuging message
-        mprf("Key: %d", key);      // debuging message
     };
 
 private:
@@ -1426,49 +1425,9 @@ private:
             return false;
         case 'f': // Handle the "F" key for searching
         {
-            mpr("Enter search query (press Enter to confirm, Esc to cancel):"); // Display prompt
-            string query;
-            int input_key;
+            mpr("searchinggggg");
 
-            while (true)
-            {
-                // Display the current query in the popup
-                show_manual_search_popup(query);
-
-                input_key = getch();                        // Capture key press
-                if (input_key == '\n' || input_key == '\r') // Enter key ends input
-                {
-                    if (!query.empty() && prev_page == '*') // Ensure we're in the manual
-                    {
-                        formatted_string search_results = _search_manual(contents, query);
-                        contents = search_results;
-                        m_contents_dirty = true;
-                        set_scroll(0); // Reset scroll to the top
-                        mpr(("Search results for: " + query).c_str());
-                    }
-                    else
-                    {
-                        mpr("No query entered.");
-                    }
-                    break;
-                }
-                else if (input_key == CK_ESCAPE) // Escape key cancels input
-                {
-                    mpr("Search canceled.");
-                    break;
-                }
-                else if (input_key == 8 || input_key == 127) // Handle backspace
-                {
-                    if (!query.empty())
-                        query.pop_back();
-                }
-                else if (isprint(input_key)) // Append printable characters to the query
-                {
-                    query += static_cast<char>(input_key);
-                }
-
-                m_contents_dirty = true;
-            }
+            show_manual_search_popup();
             return true;
         }
 
@@ -1490,20 +1449,77 @@ private:
         return formatted_scroller::process_key(ch);
     };
 
-    void show_manual_search_popup(const string &query)
+    void show_manual_search_popup()
     {
-        // Placeholder text for the manual search popup
-        formatted_string manual_search_content = formatted_string::parse_string(
-            "<yellow>Search the Manual</yellow>\n\n"
-            "Enter your search query here:     " +
-            query);
+        string query;
+        bool done = false;
 
-        formatted_scroller manual_search_popup(FS_PREWRAPPED_TEXT);
-        manual_search_popup.set_tag("manual_search_help");
-        manual_search_popup.add_formatted_string(manual_search_content);
+        while (!done)
+        {
+            // Create a new popup for each iteration
+            formatted_scroller search_popup(FS_PREWRAPPED_TEXT | FS_EASY_EXIT);
+            search_popup.set_tag("manual_search_help");
 
-        // Show the secondary popup
-        manual_search_popup.show();
+            // Set up the content with current query
+            formatted_string content = formatted_string::parse_string(
+                "<yellow>Search the Manual</yellow>\n\n"
+                "Enter your search query. Press Enter when done, Esc to cancel.\n"
+                "Current query: " +
+                query + "_");
+
+            search_popup.add_formatted_string(content);
+
+            // Show the popup and get input
+            int key = search_popup.show();
+
+            // Debug output to see what keycode is being received
+            mpr(("Key pressed: " + std::to_string(key)).c_str());
+
+            // Process the key with explicit handling
+            switch (key)
+            {
+            case '\n': // Enter (10)
+            case '\r': // Carriage return (13)
+                if (!query.empty() && prev_page == '*')
+                {
+                    // Execute search
+                    formatted_string search_results = _search_manual(contents, query);
+                    contents = search_results;
+                    m_contents_dirty = true;
+                    set_scroll(0);
+                    mpr(("Search results for: " + query).c_str());
+                }
+                else
+                {
+                    mpr("No query entered or not in manual.");
+                }
+                done = true;
+                break;
+
+            case CK_ESCAPE: // Escape
+                mpr("Search canceled.");
+                done = true;
+                break;
+
+            case 8:   // Backspace
+            case 127: // Delete
+                if (!query.empty())
+                    query.pop_back();
+                break;
+
+            case 100: // Space (32)
+                query += ' ';
+                break;
+
+            default:
+                // Handle normal alphanumeric and punctuation characters
+                if (key >= 32 && key <= 126) // ASCII printable range
+                {
+                    query += static_cast<char>(key);
+                }
+                break;
+            }
+        }
     }
 
     int prev_page{0};
