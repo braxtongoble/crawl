@@ -1392,7 +1392,7 @@ public:
     {
         set_tag("help");
         process_key(key);
-        mpr("Help popup opened."); // debuging message
+        // mpr("Help popup opened."); // debuging message
     };
 
 private:
@@ -1427,7 +1427,7 @@ private:
             return false;
         case 'f': // Handle the "F" key for searching
         {
-            mpr("searchinggggg");
+            // mpr("searching");  //debugging message
 
             show_manual_search_popup();
             return true;
@@ -1479,7 +1479,7 @@ private:
             int key = search_popup.show();
 
             // Debug output to see what keycode is being received
-            mpr(("Key pressed: " + std::to_string(key)).c_str());
+            // mpr(("Key pressed: " + std::to_string(key)).c_str());
 
             // Process the key with explicit handling
             switch (key)
@@ -1568,6 +1568,7 @@ void show_help(int section, string highlight_string)
         return;
     help_popup help(section);
     help.highlight = highlight_string;
+
     int key = toalower(help.show());
     // handle the case where one of the special case help sections is triggered
     // from the help main menu.
