@@ -1383,6 +1383,8 @@ static int _get_help_section(int section, formatted_string &header_out, formatte
 // static string get_user_input(const string &prompt);
 static formatted_string _search_manual(const formatted_string &manual, const string &query);
 
+static string tolower_string(const string &input);
+
 class help_popup : public formatted_scroller
 {
 public:
@@ -1453,6 +1455,7 @@ private:
     {
         string query;
         bool done = false;
+        formatted_string search_results;
 
         while (!done)
         {
@@ -1460,12 +1463,15 @@ private:
             formatted_scroller search_popup(FS_PREWRAPPED_TEXT | FS_EASY_EXIT);
             search_popup.set_tag("manual_search_help");
 
-            // Set up the content with current query
+            // Set up the content with the current query and search results
             formatted_string content = formatted_string::parse_string(
                 "<yellow>Search the Manual</yellow>\n\n"
-                "Enter your search query. Press Enter when done, Esc to cancel.\n"
-                "Current query: " +
-                query + "_");
+                "Enter your search query. Press Enter when done, Esc to cancel. Press '_' for a space.\n"
+                "Current query: <cyan>" +
+                query + "</cyan>\n\n");
+
+            // Append search results below the query
+            content += search_results;
 
             search_popup.add_formatted_string(content);
 
@@ -1480,20 +1486,19 @@ private:
             {
             case '\n': // Enter (10)
             case '\r': // Carriage return (13)
-                if (!query.empty() && prev_page == '*')
+                if (!query.empty())
                 {
-                    // Execute search
-                    formatted_string search_results = _search_manual(contents, query);
-                    contents = search_results;
-                    m_contents_dirty = true;
-                    set_scroll(0);
-                    mpr(("Search results for: " + query).c_str());
+                    // Execute search and update results
+                    search_results = _search_manual(contents, query);
+                    if (search_results.ops.empty())
+                    {
+                        search_results = formatted_string::parse_string("<red>No matches found.</red>\n");
+                    }
                 }
                 else
                 {
-                    mpr("No query entered or not in manual.");
+                    search_results = formatted_string::parse_string("<red>No query entered.</red>\n");
                 }
-                done = true;
                 break;
 
             case CK_ESCAPE: // Escape
@@ -1507,7 +1512,7 @@ private:
                     query.pop_back();
                 break;
 
-            case 100: // Space (32)
+            case 95: // Space
                 query += ' ';
                 break;
 
@@ -1581,7 +1586,6 @@ int encode_command_as_key(command_type cmd) noexcept
     // (currently 2000 through 2287).
     return -(int)cmd;
 }
-static string tolower_string(const string &input);
 
 static formatted_string _search_manual(const formatted_string &manual, const string &query)
 {
@@ -1590,16 +1594,25 @@ static formatted_string _search_manual(const formatted_string &manual, const str
 
     for (const auto &op : manual.ops)
     {
-        mpr(("Searching line: " + op.text).c_str()); // Debugging output
         string line = tolower_string(op.text);
-        if (line.find(lower_query) != string::npos)
+        size_t pos = line.find(lower_query);
+
+        if (pos != string::npos)
         {
-            mpr(("Match found: " + op.text).c_str());       // Debugging output
-            result += "<yellow>" + op.text + "</yellow>\n"; // Highlight matches
+            // Highlight only the matching substring
+            string highlighted_line = op.text.substr(0, pos) +
+                                      "<yellow>" +
+                                      op.text.substr(pos, lower_query.size()) +
+                                      "</yellow>" +
+                                      op.text.substr(pos + lower_query.size());
+
+            // Use parse_string to ensure formatting tags are interpreted
+            result += formatted_string::parse_string(highlighted_line + "\n");
         }
         else
         {
-            result += op.text + "\n";
+            // Add non-matching lines without highlighting
+            result += formatted_string::parse_string(op.text + "\n");
         }
     }
 
